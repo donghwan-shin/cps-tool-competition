@@ -2,7 +2,7 @@ import deap.algorithms
 import numpy as np
 import math
 import logging as log
-from random import randint
+from random import randint, gauss, random
 import matplotlib.pyplot as plt
 
 from code_pipeline.tests_generation import RoadTestFactory
@@ -18,50 +18,49 @@ class GATestGenerator():
         self.executor = executor
         self.map_size = map_size
 
-    def create_the_test(self, road_points):
-        # Create a vertical segment starting close to the left edge of the map
-        x = 10.0
-        y = 10.0
-        length = 100.0
-        interpolation_points = int(length / 10.0)
-        for y in np.linspace(y, y + length, num=interpolation_points):
-            road_points.append((x, y))
-
-        # Create the 90-deg right turn
-        radius = 20.0
-
-        center_x = x + radius
-        center_y = y
-
-        interpolation_points = 5
-        angles_in_deg = np.linspace(-60.0, 0.0, num=interpolation_points)
-
-        for angle_in_rads in [math.radians(a) for a in angles_in_deg]:
-            x = math.sin(angle_in_rads) * radius + center_x
-            y = math.cos(angle_in_rads) * radius + center_y
-            road_points.append((x, y))
-
-        # Create an horizontal segment, make sure the points line up with previous segment
-        x += radius / 2.0
-        length = 30.0
-        interpolation_points = int(length / 10.0)
-        for x in np.linspace(x, x + length, num=interpolation_points):
-            road_points.append((x, y))
-
-        # Now we add a final road point "below" the last one just to illustrate how the interpolation works
-        # But make sure the resulting turn is not too sharp...
-        y -= 100.0
-        x += 20.0
-        road_points.append((x, y))
-
-        # Creating the RoadTest from the points
-        the_test = RoadTestFactory.create_road_test(road_points)
-
-        return the_test
-
     def init_attribute(self):
         attribute = (randint(0, self.map_size), randint(0, self.map_size))
         return attribute
+
+    def mutate_tuple(self, individual, mu, sigma, indpb):
+        """(modified from deap.tools.mutGaussian)
+        This function applies a gaussian mutation of mean *mu* and standard
+        deviation *sigma* on the input individual. This mutation expects a
+        :term:`sequence` individual composed of real valued 2-dimensional tuples.
+        The *indpb* argument is the probability of each attribute to be mutated.
+
+        :param individual: Individual to be mutated
+        :param mu: Mean or :term:`python:sequence` of means for the
+                   gaussian addition mutation
+        :param sigma: Standard deviation or :term:`python:sequence` of
+                      standard deviations for the gaussian addition mutation
+        :param indpb: Independent probability for each attribute to be mutated
+        :returns: A tuple of one individual.
+        """
+
+        for i in range(0, len(individual)):
+            if random() < indpb:
+                # convert tuple into list to update values
+                point = list(individual[i])
+
+                # update the first value (x-pos)
+                point[0] += int(gauss(mu, sigma))
+                if point[0] < 0:
+                    point[0] = 0
+                if point[0] > self.map_size:
+                    point[0] = self.map_size
+
+                # update the second value (y-pos)
+                point[1] += int(gauss(mu, sigma))
+                if point[1] < 0:
+                    point[1] = 0
+                if point[1] > self.map_size:
+                    point[1] = self.map_size
+
+                # update the attribute (tuple) in the individual
+                individual[i] = tuple(point)
+
+        return individual,
 
     def evaluate(self, individual):
         # Creating the RoadTest from the points
@@ -79,12 +78,15 @@ class GATestGenerator():
         oob_percentages = [state.oob_percentage for state in execution_data]
         # log.info("Collected %d states information. Max is %.3f", len(oob_percentages), max(oob_percentages))
 
-        # Compute the fitness (= the average oob_percentage) TODO: change this to a better fitness function
+        # Compute the fitness
         if len(oob_percentages) == 0:
             fitness = 0.0
         else:
-            fitness = sum(oob_percentages) / len(oob_percentages) / 100.0
-        log.info("Individual: %s, Fitness: %.3f", individual, fitness)
+            # fitness = sum(oob_percentages) / len(oob_percentages)
+            fitness = max(oob_percentages)  # TODO: change this to a better fitness function
+        log.info(f"Individual (road_points): {road_points}, "
+                 f"test_outcome: {test_outcome}, "
+                 f"Fitness: {fitness:.5f}")
 
         return fitness,  # important to return a tuple since deap considers multiple objectives
 
@@ -110,7 +112,7 @@ class GATestGenerator():
 
         # Register the crossover and mutation operators' hyperparameters
         toolbox.register("mate", tools.cxTwoPoint)
-        toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.1)
+        toolbox.register("mutate", self.mutate_tuple, mu=0, sigma=self.map_size/10, indpb=1)
         toolbox.register("select", tools.selTournament, tournsize=3)
 
         # Register the fitness evaluation function
@@ -118,10 +120,16 @@ class GATestGenerator():
 
         # Run a simple ready-made GA
         pop_size = 10  # population size
-        num_generations = 10  # number of generations
-        pop, deap_log = deap.algorithms.eaSimple(toolbox.population(n=pop_size), toolbox,
-                                                 cxpb=0.85, mutpb=0.1, ngen=num_generations, verbose=True)
+        num_generations = 5  # number of generations
+        hof = tools.HallOfFame(1)  # save the best one individual during the whole search
+        pop, deap_log = deap.algorithms.eaSimple(population=toolbox.population(n=pop_size),
+                                                 toolbox=toolbox,
+                                                 halloffame=hof,
+                                                 cxpb=0.85,
+                                                 mutpb=0.1,
+                                                 ngen=num_generations,
+                                                 verbose=True)
 
-        # Print the best individual
-        best_individual = tools.selBest(pop, 1)[0]
-        log.info("Best individual: %s", best_individual)
+        # Print the best individual from the hall of fame
+        best_individual = tools.selBest(hof, 1)[0]
+        log.info(f"Best individual: {best_individual}, fitness: {best_individual.fitness}")
