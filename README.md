@@ -1,14 +1,16 @@
-# Cyber-Physical Systems Testing Tool Competition #
+# CPS Tool Competition - Modified Version
+
+This repository is a modified version of the [CPS Tool Competition material](https://github.com/sbft-cps-tool-competition/cps-tool-competition). The following is the list of modifications.
+- Added a [sample test generator using GA](/sample_test_generators/GA_test_generator.py), implemented using [DEAP](https://github.com/deap/deap) APIs.
+- Added a `requirements-aarch64.txt` for Apple Silicon (note that BeamNG is not executable on Mac).
+- Set a default BeamNG path (`C:\\BeamNG.tech.v0.26.2.0`)
+
+The modification is done by Donghwan Shin (d.shin@sheffield.ac.uk), and the modified code follows GPL v3 (see [LICENSE.md](LICENSE.md) for more details). 
+
+
+# Original repository information
+
 The [SBFT Workshop](https://sbft23.github.io/) offers a challenge for software testers who want to work with self-driving cars in the context of the usual [tool competition](https://sbft23.github.io/tools/).
-
-‼️ 12.12.2022: The repository has been updated to fix a bug where out-of-bound events were incorrectly counted with the BeamNG.AI driver.
-
-## Important Dates
-The deadline to submit your tool is: ~~**January 13th 2023**~~ **January 20th 2023**
-
-The results of the evaluation will be communicated to participants on: **February 21st 2023**
-
-The camera-ready paper describing your tool is due to: **March 17th 2023**
 
 ## Overview ##
 The competitors should propose a test generator that produces virtual roads to test a lane keeping assist system. The aim of the generation is to produce diverse failure-inducing tests, i.e., roads that make the lane keeping assist system drive out of the lane. 
@@ -56,7 +58,6 @@ More information can be found on the SBFT tool competition website: [https://sbf
 [Sample test generators](sample_test_generators/README.md): sample test generators already integrated with the code pipeline for illustrative purposes.
 
 [Requirements](requirements.txt): contains the list of the required packages.
-
 
 ## License ##
 The software we developed is distributed under GNU GPL license. See the [LICENSE.md](LICENSE.md) file.
