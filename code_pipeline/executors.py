@@ -79,7 +79,7 @@ class AbstractTestExecutor(ABC):
         with open(output_file_name, 'w') as test_file:
             test_file.write(the_test.to_json())
 
-    def execute_test(self, the_test):
+    def execute_test(self, the_test, is_for_training=False):
         # Mark that generation is over and log generation time
         elapsed_generation_time = time.perf_counter() - self.start_generation_time
         # Update the statistics of the run
@@ -114,7 +114,7 @@ class AbstractTestExecutor(ABC):
 
             start_execution_real_time = time.perf_counter()
             try:
-                test_outcome, description, execution_data = self._execute(the_test)
+                test_outcome, description, execution_data = self._execute(the_test, is_for_training)
             finally:
                 # Log time also on error
                 real_time_elapsed = time.perf_counter() - start_execution_real_time
@@ -206,7 +206,7 @@ class AbstractTestExecutor(ABC):
             log.warning("Despite the time budget is not over executor is exiting!")
 
     @abstractmethod
-    def _execute(self, the_test):
+    def _execute(self, the_test, is_for_training=False):
         # This should not be necessary, but better safe than sorry... The point here is that one can have spent a lot
         # of time validing the tests?
         if not self.time_budget.can_run_a_test():
@@ -217,7 +217,7 @@ class AbstractTestExecutor(ABC):
 
 class MockExecutor(AbstractTestExecutor):
 
-    def _execute(self, the_test):
+    def _execute(self, the_test, is_for_training=False):
         # Ensure we do not execute anything longer than the time budget
         super()._execute(the_test)
 
