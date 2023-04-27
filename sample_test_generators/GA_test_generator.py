@@ -14,12 +14,18 @@ class GATestGenerator():
 
     """
 
-    def __init__(self, executor=None, map_size=None):
+    def __init__(self, cxpb: float, mutpb: float, pop_size: int, num_gens: int, executor=None, map_size=None):
         self.executor = executor
         self.map_size = map_size
+        self.cxpb = cxpb  # crossover probability
+        self.mutpb = mutpb  # mutation probability
+        self.pop_size = pop_size  # population size
+        self.num_gens = num_gens  # number of generations (including the initial population)
 
     def init_attribute(self):
-        attribute = (randint(0, self.map_size), randint(0, self.map_size))
+        padding_size = self.map_size / 10
+        attribute = (randint(padding_size, self.map_size-padding_size),
+                     randint(padding_size, self.map_size-padding_size))
         return attribute
 
     def mutate_tuple(self, individual, mu, sigma, indpb):
@@ -119,17 +125,20 @@ class GATestGenerator():
         toolbox.register("evaluate", self.evaluate)
 
         # Run a simple ready-made GA
-        pop_size = 10  # population size
-        num_generations = 5  # number of generations
         hof = tools.HallOfFame(1)  # save the best one individual during the whole search
-        pop, deap_log = deap.algorithms.eaSimple(population=toolbox.population(n=pop_size),
+        pop, deap_log = deap.algorithms.eaSimple(population=toolbox.population(n=self.pop_size),
                                                  toolbox=toolbox,
                                                  halloffame=hof,
-                                                 cxpb=0.85,
-                                                 mutpb=0.1,
-                                                 ngen=num_generations,
-                                                 verbose=True)
+                                                 cxpb=self.cxpb,
+                                                 mutpb=self.mutpb,
+                                                 ngen=self.num_gens-1,  # because it starts from an init population
+                                                 verbose=False)
 
         # Print the best individual from the hall of fame
         best_individual = tools.selBest(hof, 1)[0]
         log.info(f"Best individual: {best_individual}, fitness: {best_individual.fitness}")
+
+        # append the best individual to a file
+        with open("GA_best_individuals.log", "a") as f:
+            f.write(f'pop_size={self.pop_size}, num_gens={self.num_gens}, cxpb={self.cxpb}, mutpb={self.mutpb}, '
+                    f'best_individual={best_individual}, fitness={best_individual.fitness}\n')

@@ -252,7 +252,7 @@ def setup_logging(log_to, debug):
 @click.option('--executor', type=click.Choice(['mock', 'beamng', 'dave2'], case_sensitive=False), default="mock",
               show_default='Mock Executor (meant for debugging)',
               help="The name of the executor to use. Currently we have 'mock', 'beamng' or 'dave2'.")
-@click.option('--dave2-model', required=False, type=click.Path(exists=True),
+@click.option('--dave2-model', required=False, type=click.Path(exists=True), default="dave2/beamng-dave2.h5",
               help="Path of the pre-trained Dave2 driving AI model (in .h5 format). Mandatory if the executor is dave2")
 @click.option('--beamng-home', required=False, default='C:\\BeamNG.tech.v0.26.2.0', type=click.Path(exists=True),
               show_default='None',
@@ -270,11 +270,11 @@ def setup_logging(log_to, debug):
               show_default='200m, which leads to a 200x200m^2 squared map',
               help="The lenght of the size of the squared map where the road must fit."
                    "Expressed in meters.")
-@click.option('--oob-tolerance', type=float, default=0.95, callback=validate_oob_tolerance,
+@click.option('--oob-tolerance', type=float, default=1.0, callback=validate_oob_tolerance,
               show_default='0.95',
               help="The tolerance value that defines how much of the vehicle should be outside the lane to "
                    "trigger a failed test. Must be a value between 0.0 (all oob) and 1.0 (no oob)")
-@click.option('--speed-limit', type=int, default=70, callback=validate_speed_limit,
+@click.option('--speed-limit', type=int, default=20, callback=validate_speed_limit,
               show_default='70 Km/h',
               help="The max speed of the ego-vehicle"
                    "Expressed in Kilometers per hours")
@@ -295,12 +295,18 @@ def setup_logging(log_to, debug):
 @click.option('--debug', required=False, is_flag=True, default=False,
               show_default='Disabled',
               help="Activate debugging (results in more logging)")
+# GA-related options
+@click.option('--cxpb', type=float, required=False, help="Crossover probability in GA")
+@click.option('--mutpb', type=float, required=False, help="Mutation probability in GA")
+@click.option('--num_gens', type=int, required=False, help="Number of generations in GA")
+@click.option('--pop_size', type=int, required=False, help="Population size in GA")
 @click.pass_context
 def generate(ctx, executor, dave2_model, beamng_home, beamng_user,
              time_budget,
              map_size, oob_tolerance, speed_limit,
              module_name, module_path, class_name,
-             visualize_tests, log_to, debug):
+             visualize_tests, log_to, debug,
+             cxpb, mutpb, num_gens, pop_size):
 
     ctx.ensure_object(dict)
 
@@ -372,22 +378,54 @@ def generate(ctx, executor, dave2_model, beamng_home, beamng_user,
     # Register the shutdown hook for post processing results
     register_exit_fun(create_post_processing_hook(ctx, result_folder, the_executor))
 
-    try:
-        # Instantiate the test generator
-        test_generator = the_class(executor=the_executor, map_size=map_size)
-        # Start the generation
-        test_generator.start()
-    except Exception:
-        log.fatal("An error occurred during test generation")
-        traceback.print_exc()
-        sys.exit(2)
-    finally:
-        # Ensure the executor is stopped no matter what.
-        # TODO Consider using a ContextManager: With executor ... do
-        the_executor.close()
+    pop_size_list = [5, 20]
+    num_gens_list = [5, 20]
+    cxpb_list = [0.1, 0.5, 0.9]
+    mutpb_list = [0.1, 0.5, 0.9]
+    num_repeats = 10
 
-    # We still need this here to post process the results if the execution takes the regular flow
-    post_process(ctx, result_folder, the_executor)
+    # repeat the experiments for all the combinations of the parameters
+    for pop_size in pop_size_list:
+        for num_gens in num_gens_list:
+            for cxpb in cxpb_list:
+                for mutpb in mutpb_list:
+
+                    if pop_size == 20 and num_gens == 20:
+                        continue  # skip this combination
+
+                    for i in range(num_repeats):
+                        print('-' * 80)
+                        print(f'pop_size: {pop_size}, num_gens: {num_gens}, cxpb: {cxpb}, mutpb: {mutpb}, repeat: {i}')
+
+                        try:
+                            # Instantiate the test generator
+                            if class_name == "GATestGenerator":
+                                test_generator = the_class(
+                                    executor=the_executor,
+                                    map_size=map_size,
+                                    cxpb=cxpb,
+                                    mutpb=mutpb,
+                                    num_gens=num_gens,
+                                    pop_size=pop_size
+                                )
+                            else:
+                                test_generator = the_class(executor=the_executor, map_size=map_size)
+                            # Start the generation
+                            test_generator.start()
+                        except Exception:
+                            log.fatal("An error occurred during test generation")
+                            traceback.print_exc()
+                            sys.exit(2)
+                        finally:
+                            # Ensure the executor is stopped no matter what.
+                            # TODO Consider using a ContextManager: With executor ... do
+                            the_executor.close()
+
+                        # We still need this here to post process the results if the execution takes the regular flow
+                        post_process(ctx, result_folder, the_executor)
+
+                        import gc
+                        gc.collect()
 
 
 if __name__ == '__main__':
