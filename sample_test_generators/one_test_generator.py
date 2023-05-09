@@ -60,8 +60,7 @@ class OneTestGenerator():
         the_test = RoadTestFactory.create_road_test(road_points)
 
         # Send the test for execution
-        test_outcome, description, execution_data = self.executor.execute_test(the_test, is_for_training=True)
-
+        test_outcome, description, execution_data = self.executor.execute_test(the_test)
         # Plot the OOB_Percentage: How much the car is outside the road?
         oob_percentage = [state.oob_percentage for state in execution_data]
         log.info("Collected %d states information. Max is %.3f", len(oob_percentage), max(oob_percentage))
