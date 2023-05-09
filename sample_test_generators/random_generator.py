@@ -38,8 +38,7 @@ class RandomTestGenerator():
             time_remaining = self.executor.get_remaining_time()["time-budget"]
             log.info(f"Simulated test generation for 0.5 sec. Remaining time {time_remaining}")
             # Try to execute the test
-            # test_outcome, description, execution_data = self.executor.execute_test(the_test)
-            test_outcome, description, execution_data = self.executor.execute_test(the_test, is_for_training=True)
+            test_outcome, description, execution_data = self.executor.execute_test(the_test)
             time_remaining = self.executor.get_remaining_time()["time-budget"]
             log.info(f"Executed test {the_test.id}. Remaining time {time_remaining}")
 

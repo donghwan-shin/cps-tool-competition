@@ -5,12 +5,6 @@ import logging as log
 from random import randint, gauss, random
 import matplotlib.pyplot as plt
 
-import pandas as pd
-import numpy as np
-from PIL import Image
-
-from sample_test_generators.save_best_individual import BestIndividualSaver
-from self_driving.beamng_car_cameras import BeamNGCarCameras
 from code_pipeline.tests_generation import RoadTestFactory
 
 
@@ -20,19 +14,12 @@ class GATestGenerator():
 
     """
 
-    def __init__(self, cxpb: float, mutpb: float, pop_size: int, num_gens: int, executor=None, map_size=None):
+    def __init__(self, executor=None, map_size=None):
         self.executor = executor
         self.map_size = map_size
 
-        self.cxpb = cxpb  # crossover probability
-        self.mutpb = mutpb  # mutation probability
-        self.pop_size = pop_size  # population size
-        self.num_gens = num_gens  # number of generations (including the initial population)
-
     def init_attribute(self):
-        padding_size = self.map_size / 10
-        attribute = (randint(padding_size, self.map_size - padding_size),
-                     randint(padding_size, self.map_size - padding_size))
+        attribute = (randint(0, self.map_size), randint(0, self.map_size))
         return attribute
 
     def mutate_tuple(self, individual, mu, sigma, indpb):
@@ -81,8 +68,7 @@ class GATestGenerator():
         the_test = RoadTestFactory.create_road_test(road_points)
 
         # Send the test for execution
-        # test_outcome, description, execution_data = self.executor.execute_test(the_test)
-        test_outcome, description, execution_data = self.executor.execute_test(the_test, is_for_training=True)
+        test_outcome, description, execution_data = self.executor.execute_test(the_test)
 
         # Print test outcome
         # log.info("test_outcome %s", test_outcome)
@@ -133,37 +119,17 @@ class GATestGenerator():
         toolbox.register("evaluate", self.evaluate)
 
         # Run a simple ready-made GA
-        # pop_size = 5  # population size(5,20)
-        # num_generations = 20  # number of generations 5, 20
+        pop_size = 10  # population size
+        num_generations = 5  # number of generations
         hof = tools.HallOfFame(1)  # save the best one individual during the whole search
-        pop, deap_log = deap.algorithms.eaSimple(population=toolbox.population(n=self.pop_size),
+        pop, deap_log = deap.algorithms.eaSimple(population=toolbox.population(n=pop_size),
                                                  toolbox=toolbox,
                                                  halloffame=hof,
-                                                 cxpb=self.cxpb,
-                                                 mutpb=self.mutpb,
-                                                 ngen=self.num_gens - 1,  # because it starts from an init population
-                                                 verbose=False)
+                                                 cxpb=0.85,
+                                                 mutpb=0.1,
+                                                 ngen=num_generations,
+                                                 verbose=True)
 
         # Print the best individual from the hall of fame
         best_individual = tools.selBest(hof, 1)[0]
-
         log.info(f"Best individual: {best_individual}, fitness: {best_individual.fitness}")
-
-        # append the best individual to a file
-        with open("GA_best_individuals.log", "a") as f:
-            f.write(f'pop_size={self.pop_size}, num_gens={self.num_gens}, cxpb={self.cxpb}, mutpb={self.mutpb}, '
-                    f'best_individual={best_individual}, fitness={best_individual.fitness}\n')
-
-        # log.info(f"Best individual: {best_individual}, fitness: {best_individual.fitness}")
-        #
-        # # return best_individual
-        # # folder_name = input("请输入文件夹名：")
-        # # saver = BestIndividualSaver(folder_name)
-        #
-        # saver = BestIndividualSaver("best_individual", "n20_p5_c01_m01")
-        # saver.save_best_individual(best_individual)
-        #
-        # log.info(f"拿到了结果")
-        #
-        #
-        #
