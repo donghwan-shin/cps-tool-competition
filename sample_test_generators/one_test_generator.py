@@ -60,7 +60,7 @@ class OneTestGenerator():
         the_test = RoadTestFactory.create_road_test(road_points)
 
         # Send the test for execution
-        test_outcome, description, execution_data = self.executor.execute_test(the_test)
+        test_outcome, description, execution_data = self.executor.execute_test(the_test, is_for_training=True)
 
         # Plot the OOB_Percentage: How much the car is outside the road?
         oob_percentage = [state.oob_percentage for state in execution_data]

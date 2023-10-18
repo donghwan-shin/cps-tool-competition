@@ -59,7 +59,7 @@ class Dave2Executor(AbstractTestExecutor):
         self.min_delta_position = 1.0
         self.road_visualizer = road_visualizer
 
-    def _execute(self, the_test):
+    def _execute(self, the_test, is_for_training=False):
         # Ensure we do not execute anything longer than the time budget
         super()._execute(the_test)
 

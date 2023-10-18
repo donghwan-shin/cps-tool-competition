@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+from PIL import Image
 from code_pipeline.executors import AbstractTestExecutor
 
 import time
@@ -5,6 +8,7 @@ import traceback
 from typing import Tuple
 
 from self_driving.beamng_brewer import BeamNGBrewer
+from self_driving.beamng_car_cameras import BeamNGCarCameras
 # maps is a global variable in the module, which is initialized to Maps()
 from self_driving.beamng_tig_maps import maps, LevelsFolder
 from self_driving.beamng_waypoint import BeamNGWaypoint
@@ -50,7 +54,7 @@ class BeamngExecutor(AbstractTestExecutor):
         self.min_delta_position = 1.0
         self.road_visualizer = road_visualizer
 
-    def _execute(self, the_test):
+    def _execute(self, the_test, is_for_training=False):
         # Ensure we do not execute anything longer than the time budget
         super()._execute(the_test)
 
@@ -74,7 +78,7 @@ class BeamngExecutor(AbstractTestExecutor):
             if attempt > 2:
                 time.sleep(5)
 
-            sim = self._run_simulation(the_test)
+            sim = self._run_simulation(the_test, is_for_training)
 
             if sim.info.success:
                 if sim.exception_str:
@@ -109,7 +113,7 @@ class BeamngExecutor(AbstractTestExecutor):
             else:
                 return True
 
-    def _run_simulation(self, the_test) -> SimulationData:
+    def _run_simulation(self, the_test, is_for_training) -> SimulationData:
         if not self.brewer:
             self.brewer = BeamNGBrewer(beamng_home=self.beamng_home, beamng_user=self.beamng_user)
             self.vehicle = self.brewer.setup_vehicle()
@@ -148,8 +152,22 @@ class BeamngExecutor(AbstractTestExecutor):
 
         sim_data_collector.get_simulation_data().start()
 
+        # initialisation
+        cameras = None
+        training_data = None
+
         try:
             brewer.bring_up()
+
+            if is_for_training:
+                # road cameras
+                cameras = BeamNGCarCameras(beamng=beamng, vehicle=self.vehicle)
+
+                # make the image saving directory
+                os.makedirs(sim_data_collector.get_simulation_data().path_root)
+
+                # initialise a map to save the timestamps and the steering angles
+                training_data = []
 
             brewer.vehicle.ai_set_aggression(self.risk_value)
             #  Sets the target speed for the AI in m/s, limit means this is the maximum value (not the reference one)
@@ -170,6 +188,16 @@ class BeamngExecutor(AbstractTestExecutor):
 
                 assert not last_state.is_oob, "Car drove out of the lane " + str(sim_data_collector.name)
 
+                if is_for_training:
+                    # save image taken from the cameras
+                    data_img = cameras.cameras_array['cam_center'].poll()
+                    img_array = np.asarray(data_img['colour'].convert('RGB'))
+                    img = Image.fromarray(img_array)
+                    img.save(sim_data_collector.get_simulation_data().path_root.joinpath(f'{last_state.timer}_center.jpg'))
+
+                    # save the training_data
+                    training_data.append([str(last_state.timer), last_state.steering])
+
                 beamng.step(steps, wait=False)
 
             sim_data_collector.get_simulation_data().end(success=True)
@@ -183,6 +211,11 @@ class BeamngExecutor(AbstractTestExecutor):
             traceback.print_exception(type(ex), ex, ex.__traceback__)
         finally:
             sim_data_collector.save()
+
+            if is_for_training:
+                training_data_df = pd.DataFrame(training_data, columns=['timestamp', 'steering'], dtype=str)
+                training_data_df.to_csv(sim_data_collector.get_simulation_data().path_root.joinpath('training_data.csv'), index=False)
+
             try:
                 sim_data_collector.take_car_picture_if_needed()
             except:

@@ -252,12 +252,12 @@ def setup_logging(log_to, debug):
 @click.option('--executor', type=click.Choice(['mock', 'beamng', 'dave2'], case_sensitive=False), default="mock",
               show_default='Mock Executor (meant for debugging)',
               help="The name of the executor to use. Currently we have 'mock', 'beamng' or 'dave2'.")
-@click.option('--dave2-model', required=False, type=click.Path(exists=True),
+@click.option('--dave2-model', required=False, type=click.Path(exists=True), default="dave2/beamng-dave2.h5",
               help="Path of the pre-trained Dave2 driving AI model (in .h5 format). Mandatory if the executor is dave2")
-@click.option('--beamng-home', required=False, default=None, type=click.Path(exists=True),
+@click.option('--beamng-home', required=False, default='C:\\BeamNG.tech.v0.26.2.0', type=click.Path(exists=True),
               show_default='None',
               help="Customize BeamNG executor by specifying the home of the simulator.")
-@click.option('--beamng-user', required=False, default=None, type=click.Path(exists=True),
+@click.option('--beamng-user', required=False, default='C:\\BeamNG.tech.v0.26.2.0-working', type=click.Path(exists=True),
               show_default='Currently Active User (~/BeamNG.tech/)',
               help="Customize BeamNG executor by specifying the location of the folder "
                    "where levels, props, and other BeamNG-related data will be copied."
